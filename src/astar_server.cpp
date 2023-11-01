@@ -4,6 +4,7 @@
 #include <nav_msgs/Path.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <opencv2/opencv.hpp>
+
 #include "Astar.h"
 #include "OccMapTransform.h"
 #include "astar_ros/GetPlan.h"
@@ -55,6 +56,7 @@ bool runAStar(astar_ros::GetPlan::Request& req, astar_ros::GetPlan::Response& re
   OccGridParam.Map2ImageTransform(cv_start, startpoint);
   Point2d cv_goal = Point2d(req.goal.x, req.goal.y);
   OccGridParam.Map2ImageTransform(cv_goal, targetpoint);
+  std::string ns = ros::this_node::getNamespace();
 
   // Planning
   planner.PathPlanning(startpoint, targetpoint, PathList);
@@ -62,16 +64,16 @@ bool runAStar(astar_ros::GetPlan::Request& req, astar_ros::GetPlan::Response& re
   if(!PathList.empty())
   {
     res.path.header.stamp = ros::Time::now();
-    res.path.header.frame_id = "map";
+    res.path.header.frame_id = ns+"/map";
     res.path.poses.clear();
+    geometry_msgs::PoseStamped pose_stamped;
+    pose_stamped.header.stamp = res.path.header.stamp;
+    pose_stamped.header.frame_id = res.path.header.frame_id;
     for(int i=0;i<PathList.size();i++)
     {
         Point2d dst_point;
         OccGridParam.Image2MapTransform(PathList[i], dst_point);
 
-        geometry_msgs::PoseStamped pose_stamped;
-        pose_stamped.header.stamp = ros::Time::now();
-        pose_stamped.header.frame_id = "map";
         pose_stamped.pose.position.x = dst_point.x;
         pose_stamped.pose.position.y = dst_point.y;
         pose_stamped.pose.position.z = 0;
@@ -102,9 +104,9 @@ int main(int argc, char** argv) {
 
   // Subscriber
   ros::Subscriber map_sub = nh.subscribe("map", 10, MapCallback);
-
+  // ROS_ERROR("%s", ns.c_str());
   // Service
-  ros::ServiceServer service = nh.advertiseService("/get_astar_plan", runAStar);
+  ros::ServiceServer service = nh.advertiseService("get_astar_plan", runAStar);
 
   ros::spin();
 
